@@ -1,21 +1,33 @@
-
 # Entorno virtual
+
 .venv/
 
 # Credenciales y variables de entorno
+
 .env
 .env.*
-
-# Permitir plantillas de configuración
 !.env.example
 
-
 # Archivos de Python
-__pycache__/
+
+**pycache**/
 *.py[cod]
 
 # Archivos temporales de Jupyter
+
 .ipynb_checkpoints/
 
 # Configuración local de editores
+
 .vscode/
+
+# Datos extraídos de la base de datos
+
+data/raw/
+data/processed/
+
+# Archivos temporales y del sistema
+
+*.log
+.DS_Store
+Thumbs.db
