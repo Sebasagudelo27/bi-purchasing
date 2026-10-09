@@ -1,0 +1,21 @@
+
+# Entorno virtual
+.venv/
+
+# Credenciales y variables de entorno
+.env
+.env.*
+
+# Permitir plantillas de configuración
+!.env.example
+
+
+# Archivos de Python
+__pycache__/
+*.py[cod]
+
+# Archivos temporales de Jupyter
+.ipynb_checkpoints/
+
+# Configuración local de editores
+.vscode/
