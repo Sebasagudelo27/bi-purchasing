@@ -59,8 +59,9 @@ Los archivos CSV extraídos se almacenan localmente en `data/raw/`. Los resultad
 - [x] Inspección inicial de los datos.
 - [x] Consolidación básica por proveedor.
 - [x] Documentación inicial del proyecto.
-- [ ] Análisis exploratorio de datos (EDA).
-- [ ] Segmentación de proveedores mediante K-Means.
+- [x] Análisis exploratorio de datos (EDA).
+- [x] Preparación de variables para la segmentación (HU 3.1).
+- [x] Segmentación de proveedores mediante K-Means (HU 3.2 y 3.3).
 - [ ] Integración de resultados y conclusiones del sprint.
 
 ## Configuración del entorno y extracción de datos
