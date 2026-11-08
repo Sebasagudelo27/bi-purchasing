@@ -19,7 +19,10 @@ bi-purchasing/
 ├── data/
 │   ├── raw/
 │   └── processed/
+├── docs/                  # Documentación del Criterio 3 (modelo y medidas)
 ├── notebooks/
+├── powerbi/               # Medidas DAX del modelo
+├── sql/                   # Vistas del modelo en estrella en AdventureWorks2
 ├── src/
 ├── .env.example
 ├── .gitignore
@@ -63,6 +66,34 @@ Los archivos CSV extraídos se almacenan localmente en `data/raw/`. Los resultad
 - [x] Preparación de variables para la segmentación (HU 3.1).
 - [x] Segmentación de proveedores mediante K-Means (HU 3.2 y 3.3).
 - [ ] Integración de resultados y conclusiones del sprint.
+
+## Criterio 3 — Modelo en estrella para Power BI
+
+La parte de datos del Criterio 3 deja un modelo dimensional en Power BI Desktop sobre AdventureWorks2, con los proveedores de prueba **1699 y 1700** excluidos.
+
+| Recurso | Descripción |
+|---|---|
+| `sql/01_modelo_estrella.sql` | Crea el esquema `bi` con las dimensiones, los hechos y la tabla de segmentos. Ya fue ejecutado y validado. |
+| `powerbi/medidas_basicas.dax` | Medidas para las tarjetas KPI. |
+| `powerbi/medidas_avanzadas.dax` | Medidas de tiempo, ranking, concentración, calidad y ventanas móviles. |
+| `docs/criterio3_modelo_estrella.md` | Diseño del modelo, relaciones, exclusión de 1699/1700 y validación. |
+| `docs/criterio3_medidas_dax.md` | Catálogo de medidas con fórmula y explicación. |
+| `docs/criterio3_guia_powerbi.md` | Paso a paso para construir `Compras_v1_Molina.pbix`. |
+| `src/load_vendor_segments.py` | Carga opcional de los segmentos K-Means en `bi.VendorSegmento`. |
+
+Resultados esperados del modelo (sin 1699/1700): **104 proveedores**, **4.015 órdenes**, **8.846 líneas**, **63.792.094,84** en líneas y **70.486.331,59** en `TotalDue`.
+
+Para construir el archivo:
+
+```bash
+# 1. Crear las vistas en AdventureWorks2 (una sola vez)
+#    Ejecutar sql/01_modelo_estrella.sql con un cliente SQL.
+
+# 2. Opcional: cargar los segmentos K-Means
+python src/load_vendor_segments.py
+
+# 3. Seguir docs/criterio3_guia_powerbi.md en Power BI Desktop
+```
 
 ## Configuración del entorno y extracción de datos
 

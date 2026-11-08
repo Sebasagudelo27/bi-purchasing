@@ -1,0 +1,262 @@
+/* ============================================================================
+   CRITERIO 3 - MEDIDAS DAX BÁSICAS
+   Proyecto: BI Purchasing - AdventureWorks2
+   Responsable: Molina
+   ----------------------------------------------------------------------------
+   Estas medidas son el insumo directo para las tarjetas KPI de Sebastián.
+   Crear una tabla vacía llamada `_Medidas` (Inicio > Escribir datos > una
+   columna) y agregar cada medida allí, no en las tablas de hechos.
+
+   Convención de nombres:
+     - Carpetas de presentación: 01 Básicas, 02 Avanzadas, 03 Órdenes.
+     - Formato monetario: Moneda / $ #,##0.00
+     - Porcentajes: 0.0 %
+     - Conteos: número entero
+
+   Para pegar una medida en Power BI:
+     1. Clic derecho en `_Medidas` > Nueva medida.
+     2. Copiar SOLO la expresión que está después del signo `=`.
+     3. Asignar el nombre y la carpeta indicados en el comentario.
+   ============================================================================ */
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado
+   Carpeta: 01 Básicas | Formato: Moneda
+   Suma el valor de las líneas de compra. Es el monto comprado sin impuestos
+   ni flete (para eso usar [Total con Impuestos y Flete]).
+   ---------------------------------------------------------------------------- */
+Total Comprado =
+SUM ( FactCompras[TotalLinea] )
+
+
+/* ----------------------------------------------------------------------------
+   Número de Órdenes
+   Carpeta: 01 Básicas | Formato: Número entero
+   Cuenta todas las órdenes de compra, incluidas las que no tienen detalle.
+   Usa FactOrdenes para que el conteo sea exacto.
+   ---------------------------------------------------------------------------- */
+Número de Órdenes =
+COUNTROWS ( FactOrdenes )
+
+
+/* ----------------------------------------------------------------------------
+   Número de Órdenes con Detalle
+   Carpeta: 01 Básicas | Formato: Número entero
+   Cuenta las órdenes que tienen al menos una línea. Sirve para promedios
+   calculados sobre FactCompras y para visuales por producto.
+   ---------------------------------------------------------------------------- */
+Número de Órdenes con Detalle =
+DISTINCTCOUNT ( FactCompras[PurchaseOrderID] )
+
+
+/* ----------------------------------------------------------------------------
+   Valor Promedio por Orden
+   Carpeta: 01 Básicas | Formato: Moneda
+   Monto promedio de las líneas por orden con detalle.
+   ---------------------------------------------------------------------------- */
+Valor Promedio por Orden =
+DIVIDE ( [Total Comprado], [Número de Órdenes con Detalle] )
+
+
+/* ----------------------------------------------------------------------------
+   Total con Impuestos y Flete
+   Carpeta: 01 Básicas | Formato: Moneda
+   Suma el TotalDue de la cabecera de cada orden. Incluye SubTotal + impuestos
+   + flete. No sumar esta medida junto con [Total Comprado] en la misma tarjeta.
+   ---------------------------------------------------------------------------- */
+Total con Impuestos y Flete =
+SUM ( FactOrdenes[TotalDue] )
+
+
+/* ----------------------------------------------------------------------------
+   Valor Promedio por Orden (TotalDue)
+   Carpeta: 01 Básicas | Formato: Moneda
+   TotalDue promedio por orden, incluidas las órdenes sin detalle.
+   ---------------------------------------------------------------------------- */
+Valor Promedio por Orden (TotalDue) =
+DIVIDE ( [Total con Impuestos y Flete], [Número de Órdenes] )
+
+
+/* ----------------------------------------------------------------------------
+   Unidades Compradas
+   Carpeta: 01 Básicas | Formato: Número entero
+   Suma de unidades ordenadas en todas las líneas.
+   ---------------------------------------------------------------------------- */
+Unidades Compradas =
+SUM ( FactCompras[CantidadOrdenada] )
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores con Compras
+   Carpeta: 01 Básicas | Formato: Número entero
+   Proveedores distintos que aparecen en al menos una línea de compra.
+   ---------------------------------------------------------------------------- */
+Proveedores con Compras =
+DISTINCTCOUNT ( FactCompras[VendorID] )
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores Activos
+   Carpeta: 01 Básicas | Formato: Número entero
+   Proveedores marcados como activos en el maestro, tengan o no compras.
+   ---------------------------------------------------------------------------- */
+Proveedores Activos =
+CALCULATE (
+    DISTINCTCOUNT ( DimProveedor[VendorID] ),
+    DimProveedor[ActiveFlag] = TRUE ()
+)
+
+
+/* ----------------------------------------------------------------------------
+   Productos Comprados
+   Carpeta: 01 Básicas | Formato: Número entero
+   Productos distintos comprados en el período.
+   ---------------------------------------------------------------------------- */
+Productos Comprados =
+DISTINCTCOUNT ( FactCompras[ProductID] )
+
+
+/* ----------------------------------------------------------------------------
+   Costo Promedio Unitario
+   Carpeta: 01 Básicas | Formato: Moneda
+   Monto comprado dividido entre las unidades ordenadas.
+   ---------------------------------------------------------------------------- */
+Costo Promedio Unitario =
+DIVIDE ( [Total Comprado], [Unidades Compradas] )
+
+
+/* ----------------------------------------------------------------------------
+   Cantidad Recibida
+   Carpeta: 01 Básicas | Formato: Número entero
+   Unidades efectivamente recibidas.
+   ---------------------------------------------------------------------------- */
+Cantidad Recibida =
+SUM ( FactCompras[CantidadRecibida] )
+
+
+/* ----------------------------------------------------------------------------
+   Cantidad Rechazada
+   Carpeta: 01 Básicas | Formato: Número entero
+   Unidades rechazadas en la recepción.
+   ---------------------------------------------------------------------------- */
+Cantidad Rechazada =
+SUM ( FactCompras[CantidadRechazada] )
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Rechazo
+   Carpeta: 01 Básicas | Formato: Porcentaje
+   Unidades rechazadas sobre el total de unidades recibidas + rechazadas.
+   ---------------------------------------------------------------------------- */
+Porcentaje de Rechazo =
+DIVIDE (
+    [Cantidad Rechazada],
+    [Cantidad Recibida] + [Cantidad Rechazada]
+)
+
+
+/* ----------------------------------------------------------------------------
+   Órdenes Completadas
+   Carpeta: 01 Básicas | Formato: Número entero
+   Órdenes con Status = 4 (Completada).
+   ---------------------------------------------------------------------------- */
+Órdenes Completadas =
+CALCULATE (
+    [Número de Órdenes],
+    DimEstadoOrden[Estado] = "Completada"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Órdenes Completadas
+   Carpeta: 01 Básicas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Órdenes Completadas =
+DIVIDE ( [Órdenes Completadas], [Número de Órdenes] )
+
+
+/* ----------------------------------------------------------------------------
+   Órdenes Pendientes
+   Carpeta: 01 Básicas | Formato: Número entero
+   Órdenes con Status = 1 (Pendiente).
+   ---------------------------------------------------------------------------- */
+Órdenes Pendientes =
+CALCULATE (
+    [Número de Órdenes],
+    DimEstadoOrden[Estado] = "Pendiente"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Órdenes Rechazadas
+   Carpeta: 01 Básicas | Formato: Número entero
+   Órdenes con Status = 3 (Rechazada).
+   ---------------------------------------------------------------------------- */
+Órdenes Rechazadas =
+CALCULATE (
+    [Número de Órdenes],
+    DimEstadoOrden[Estado] = "Rechazada"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Días Promedio de Entrega
+   Carpeta: 01 Básicas | Formato: Número decimal
+   Promedio de días entre la fecha de orden y la fecha de envío. Solo considera
+   órdenes con fecha de envío registrada.
+   ---------------------------------------------------------------------------- */
+Días Promedio de Entrega =
+AVERAGEX (
+    FILTER ( FactOrdenes, NOT ISBLANK ( FactOrdenes[FechaEnvio] ) ),
+    FactOrdenes[DiasEntrega]
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores Preferidos
+   Carpeta: 01 Básicas | Formato: Número entero
+   Proveedores con PreferredVendorStatus = True que tienen compras.
+   ---------------------------------------------------------------------------- */
+Proveedores Preferidos =
+CALCULATE (
+    DISTINCTCOUNT ( FactCompras[VendorID] ),
+    DimProveedor[PreferredVendorStatus] = TRUE ()
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Proveedores Preferidos
+   Carpeta: 01 Básicas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Proveedores Preferidos =
+DIVIDE ( [Proveedores Preferidos], [Proveedores con Compras] )
+
+
+/* ----------------------------------------------------------------------------
+   Calificación Crediticia Promedio
+   Carpeta: 01 Básicas | Formato: Número decimal
+   Promedio simple por proveedor (cada proveedor pesa igual, sin importar
+   cuánto se le compró).
+   ---------------------------------------------------------------------------- */
+Calificación Crediticia Promedio =
+AVERAGEX (
+    VALUES ( DimProveedor[VendorID] ),
+    CALCULATE ( AVERAGE ( DimProveedor[CreditRating] ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Monto Promedio por Proveedor
+   Carpeta: 01 Básicas | Formato: Moneda
+   ---------------------------------------------------------------------------- */
+Monto Promedio por Proveedor =
+DIVIDE ( [Total Comprado], [Proveedores con Compras] )
+
+
+/* ----------------------------------------------------------------------------
+   Órdenes por Proveedor
+   Carpeta: 01 Básicas | Formato: Número decimal
+   ---------------------------------------------------------------------------- */
+Órdenes por Proveedor =
+DIVIDE ( [Número de Órdenes], [Proveedores con Compras] )

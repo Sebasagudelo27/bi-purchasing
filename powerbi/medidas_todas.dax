@@ -1,0 +1,838 @@
+﻿/* ============================================================================
+   MEDIDAS DAX COMPLETAS - CRITERIO 3
+   Proyecto: BI Purchasing - AdventureWorks2
+   ----------------------------------------------------------------------------
+   Tablas del modelo: FactCompras, FactOrdenes, DimProveedor, DimProducto,
+   DimFecha, DimMetodoEnvio y DimEstadoOrden.
+   Pegar cada medida en: _Medidas > Nueva medida.
+   ============================================================================ */
+/* ============================================================================
+   CRITERIO 3 - MEDIDAS DAX BÃSICAS
+   Proyecto: BI Purchasing - AdventureWorks2
+   Responsable: Molina
+   ----------------------------------------------------------------------------
+   Estas medidas son el insumo directo para las tarjetas KPI de SebastiÃ¡n.
+   Crear una tabla vacÃ­a llamada `_Medidas` (Inicio > Escribir datos > una
+   columna) y agregar cada medida allÃ­, no en las tablas de hechos.
+
+   ConvenciÃ³n de nombres:
+     - Carpetas de presentaciÃ³n: 01 BÃ¡sicas, 02 Avanzadas, 03 Ã“rdenes.
+     - Formato monetario: Moneda / $ #,##0.00
+     - Porcentajes: 0.0 %
+     - Conteos: nÃºmero entero
+
+   Para pegar una medida en Power BI:
+     1. Clic derecho en `_Medidas` > Nueva medida.
+     2. Copiar SOLO la expresiÃ³n que estÃ¡ despuÃ©s del signo `=`.
+     3. Asignar el nombre y la carpeta indicados en el comentario.
+   ============================================================================ */
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado
+   Carpeta: 01 BÃ¡sicas | Formato: Moneda
+   Suma el valor de las lÃ­neas de compra. Es el monto comprado sin impuestos
+   ni flete (para eso usar [Total con Impuestos y Flete]).
+   ---------------------------------------------------------------------------- */
+Total Comprado =
+SUM ( FactCompras[TotalLinea] )
+
+
+/* ----------------------------------------------------------------------------
+   NÃºmero de Ã“rdenes
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Cuenta todas las Ã³rdenes de compra, incluidas las que no tienen detalle.
+   Usa FactOrdenes para que el conteo sea exacto.
+   ---------------------------------------------------------------------------- */
+NÃºmero de Ã“rdenes =
+COUNTROWS ( FactOrdenes )
+
+
+/* ----------------------------------------------------------------------------
+   NÃºmero de Ã“rdenes con Detalle
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Cuenta las Ã³rdenes que tienen al menos una lÃ­nea. Sirve para promedios
+   calculados sobre FactCompras y para visuales por producto.
+   ---------------------------------------------------------------------------- */
+NÃºmero de Ã“rdenes con Detalle =
+DISTINCTCOUNT ( FactCompras[PurchaseOrderID] )
+
+
+/* ----------------------------------------------------------------------------
+   Valor Promedio por Orden
+   Carpeta: 01 BÃ¡sicas | Formato: Moneda
+   Monto promedio de las lÃ­neas por orden con detalle.
+   ---------------------------------------------------------------------------- */
+Valor Promedio por Orden =
+DIVIDE ( [Total Comprado], [NÃºmero de Ã“rdenes con Detalle] )
+
+
+/* ----------------------------------------------------------------------------
+   Total con Impuestos y Flete
+   Carpeta: 01 BÃ¡sicas | Formato: Moneda
+   Suma el TotalDue de la cabecera de cada orden. Incluye SubTotal + impuestos
+   + flete. No sumar esta medida junto con [Total Comprado] en la misma tarjeta.
+   ---------------------------------------------------------------------------- */
+Total con Impuestos y Flete =
+SUM ( FactOrdenes[TotalDue] )
+
+
+/* ----------------------------------------------------------------------------
+   Valor Promedio por Orden (TotalDue)
+   Carpeta: 01 BÃ¡sicas | Formato: Moneda
+   TotalDue promedio por orden, incluidas las Ã³rdenes sin detalle.
+   ---------------------------------------------------------------------------- */
+Valor Promedio por Orden (TotalDue) =
+DIVIDE ( [Total con Impuestos y Flete], [NÃºmero de Ã“rdenes] )
+
+
+/* ----------------------------------------------------------------------------
+   Unidades Compradas
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Suma de unidades ordenadas en todas las lÃ­neas.
+   ---------------------------------------------------------------------------- */
+Unidades Compradas =
+SUM ( FactCompras[CantidadOrdenada] )
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores con Compras
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Proveedores distintos que aparecen en al menos una lÃ­nea de compra.
+   ---------------------------------------------------------------------------- */
+Proveedores con Compras =
+DISTINCTCOUNT ( FactCompras[VendorID] )
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores Activos
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Proveedores marcados como activos en el maestro, tengan o no compras.
+   ---------------------------------------------------------------------------- */
+Proveedores Activos =
+CALCULATE (
+    DISTINCTCOUNT ( DimProveedor[VendorID] ),
+    DimProveedor[ActiveFlag] = TRUE ()
+)
+
+
+/* ----------------------------------------------------------------------------
+   Productos Comprados
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Productos distintos comprados en el perÃ­odo.
+   ---------------------------------------------------------------------------- */
+Productos Comprados =
+DISTINCTCOUNT ( FactCompras[ProductID] )
+
+
+/* ----------------------------------------------------------------------------
+   Costo Promedio Unitario
+   Carpeta: 01 BÃ¡sicas | Formato: Moneda
+   Monto comprado dividido entre las unidades ordenadas.
+   ---------------------------------------------------------------------------- */
+Costo Promedio Unitario =
+DIVIDE ( [Total Comprado], [Unidades Compradas] )
+
+
+/* ----------------------------------------------------------------------------
+   Cantidad Recibida
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Unidades efectivamente recibidas.
+   ---------------------------------------------------------------------------- */
+Cantidad Recibida =
+SUM ( FactCompras[CantidadRecibida] )
+
+
+/* ----------------------------------------------------------------------------
+   Cantidad Rechazada
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Unidades rechazadas en la recepciÃ³n.
+   ---------------------------------------------------------------------------- */
+Cantidad Rechazada =
+SUM ( FactCompras[CantidadRechazada] )
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Rechazo
+   Carpeta: 01 BÃ¡sicas | Formato: Porcentaje
+   Unidades rechazadas sobre el total de unidades recibidas + rechazadas.
+   ---------------------------------------------------------------------------- */
+Porcentaje de Rechazo =
+DIVIDE (
+    [Cantidad Rechazada],
+    [Cantidad Recibida] + [Cantidad Rechazada]
+)
+
+
+/* ----------------------------------------------------------------------------
+   Ã“rdenes Completadas
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Ã“rdenes con Status = 4 (Completada).
+   ---------------------------------------------------------------------------- */
+Ã“rdenes Completadas =
+CALCULATE (
+    [NÃºmero de Ã“rdenes],
+    DimEstadoOrden[Estado] = "Completada"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Ã“rdenes Completadas
+   Carpeta: 01 BÃ¡sicas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Ã“rdenes Completadas =
+DIVIDE ( [Ã“rdenes Completadas], [NÃºmero de Ã“rdenes] )
+
+
+/* ----------------------------------------------------------------------------
+   Ã“rdenes Pendientes
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Ã“rdenes con Status = 1 (Pendiente).
+   ---------------------------------------------------------------------------- */
+Ã“rdenes Pendientes =
+CALCULATE (
+    [NÃºmero de Ã“rdenes],
+    DimEstadoOrden[Estado] = "Pendiente"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Ã“rdenes Rechazadas
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Ã“rdenes con Status = 3 (Rechazada).
+   ---------------------------------------------------------------------------- */
+Ã“rdenes Rechazadas =
+CALCULATE (
+    [NÃºmero de Ã“rdenes],
+    DimEstadoOrden[Estado] = "Rechazada"
+)
+
+
+/* ----------------------------------------------------------------------------
+   DÃ­as Promedio de Entrega
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero decimal
+   Promedio de dÃ­as entre la fecha de orden y la fecha de envÃ­o. Solo considera
+   Ã³rdenes con fecha de envÃ­o registrada.
+   ---------------------------------------------------------------------------- */
+DÃ­as Promedio de Entrega =
+AVERAGEX (
+    FILTER ( FactOrdenes, NOT ISBLANK ( FactOrdenes[FechaEnvio] ) ),
+    FactOrdenes[DiasEntrega]
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores Preferidos
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero entero
+   Proveedores con PreferredVendorStatus = True que tienen compras.
+   ---------------------------------------------------------------------------- */
+Proveedores Preferidos =
+CALCULATE (
+    DISTINCTCOUNT ( FactCompras[VendorID] ),
+    DimProveedor[PreferredVendorStatus] = TRUE ()
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Proveedores Preferidos
+   Carpeta: 01 BÃ¡sicas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Proveedores Preferidos =
+DIVIDE ( [Proveedores Preferidos], [Proveedores con Compras] )
+
+
+/* ----------------------------------------------------------------------------
+   CalificaciÃ³n Crediticia Promedio
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero decimal
+   Promedio simple por proveedor (cada proveedor pesa igual, sin importar
+   cuÃ¡nto se le comprÃ³).
+   ---------------------------------------------------------------------------- */
+CalificaciÃ³n Crediticia Promedio =
+AVERAGEX (
+    VALUES ( DimProveedor[VendorID] ),
+    CALCULATE ( AVERAGE ( DimProveedor[CreditRating] ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Monto Promedio por Proveedor
+   Carpeta: 01 BÃ¡sicas | Formato: Moneda
+   ---------------------------------------------------------------------------- */
+Monto Promedio por Proveedor =
+DIVIDE ( [Total Comprado], [Proveedores con Compras] )
+
+
+/* ----------------------------------------------------------------------------
+   Ã“rdenes por Proveedor
+   Carpeta: 01 BÃ¡sicas | Formato: NÃºmero decimal
+   ---------------------------------------------------------------------------- */
+Ã“rdenes por Proveedor =
+DIVIDE ( [NÃºmero de Ã“rdenes], [Proveedores con Compras] )
+
+
+/* ============================================================================
+   CRITERIO 3 - MEDIDAS DAX AVANZADAS
+   Proyecto: BI Purchasing - AdventureWorks2
+   Responsable: Molina
+   ----------------------------------------------------------------------------
+   Requisitos del modelo:
+     - DimFecha marcada como tabla de fechas (columna Date).
+     - RelaciÃ³n activa: DimFecha[Date] 1 -> * FactCompras[FechaOrden]
+     - RelaciÃ³n activa: DimFecha[Date] 1 -> * FactOrdenes[FechaOrden]
+     - Relaciones inactivas:
+         DimFecha[Date] 1 -> * FactCompras[FechaEnvio]
+         DimFecha[Date] 1 -> * FactCompras[FechaVencimiento]
+         DimFecha[Date] 1 -> * FactOrdenes[FechaEnvio]
+
+   Las medidas de tiempo (SAMEPERIODLASTYEAR, TOTALYTD, DATEADD) no funcionan
+   bien si DimFecha no estÃ¡ marcada como tabla de fechas.
+   ============================================================================ */
+
+
+/* ============================================================================
+   BLOQUE 1 - INTELIGENCIA DE TIEMPO
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Total Comprado AÃ±o Anterior
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Compara el mismo perÃ­odo del aÃ±o anterior.
+   ---------------------------------------------------------------------------- */
+Total Comprado AÃ±o Anterior =
+CALCULATE (
+    [Total Comprado],
+    SAMEPERIODLASTYEAR ( DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   VariaciÃ³n Porcentual AÃ±o Anterior
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+VariaciÃ³n Porcentual AÃ±o Anterior =
+VAR Actual   = [Total Comprado]
+VAR Anterior = [Total Comprado AÃ±o Anterior]
+RETURN
+DIVIDE ( Actual - Anterior, Anterior )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado YTD
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Acumulado del aÃ±o calendario hasta la fecha seleccionada.
+   ---------------------------------------------------------------------------- */
+Total Comprado YTD =
+TOTALYTD ( [Total Comprado], DimFecha[Date] )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado MTD
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Acumulado del mes hasta la fecha seleccionada.
+   ---------------------------------------------------------------------------- */
+Total Comprado MTD =
+TOTALMTD ( [Total Comprado], DimFecha[Date] )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado Acumulado
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Acumulado corrido sobre el eje de fechas visible en el visual.
+   ---------------------------------------------------------------------------- */
+Total Comprado Acumulado =
+CALCULATE (
+    [Total Comprado],
+    FILTER (
+        ALLSELECTED ( DimFecha[Date] ),
+        DimFecha[Date] <= MAX ( DimFecha[Date] )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   VariaciÃ³n Porcentual Mes Anterior
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+VariaciÃ³n Porcentual Mes Anterior =
+VAR Actual   = [Total Comprado]
+VAR Anterior = CALCULATE (
+    [Total Comprado],
+    DATEADD ( DimFecha[Date], -1, MONTH )
+)
+RETURN
+DIVIDE ( Actual - Anterior, Anterior )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado por Fecha de EnvÃ­o
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Reasigna el filtro de DimFecha a la fecha de envÃ­o (relaciÃ³n inactiva).
+   Ãštil para analizar compras despachadas en un mes distinto al de la orden.
+   ---------------------------------------------------------------------------- */
+Total Comprado por Fecha de EnvÃ­o =
+CALCULATE (
+    [Total Comprado],
+    USERELATIONSHIP ( FactCompras[FechaEnvio], DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado por Fecha de Vencimiento
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Reasigna el filtro de DimFecha a la fecha de vencimiento (relaciÃ³n inactiva).
+   ---------------------------------------------------------------------------- */
+Total Comprado por Fecha de Vencimiento =
+CALCULATE (
+    [Total Comprado],
+    USERELATIONSHIP ( FactCompras[FechaVencimiento], DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Total con Impuestos y Flete AÃ±o Anterior
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   ---------------------------------------------------------------------------- */
+Total con Impuestos y Flete AÃ±o Anterior =
+CALCULATE (
+    [Total con Impuestos y Flete],
+    SAMEPERIODLASTYEAR ( DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   VariaciÃ³n Porcentual TotalDue AÃ±o Anterior
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+VariaciÃ³n Porcentual TotalDue AÃ±o Anterior =
+VAR Actual   = [Total con Impuestos y Flete]
+VAR Anterior = [Total con Impuestos y Flete AÃ±o Anterior]
+RETURN
+DIVIDE ( Actual - Anterior, Anterior )
+
+
+/* ============================================================================
+   BLOQUE 2 - RANKING, PARTICIPACIÃ“N Y CONCENTRACIÃ“N
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Ranking Proveedor
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   Usar en una tabla o grÃ¡fico a nivel de proveedor.
+   ---------------------------------------------------------------------------- */
+Ranking Proveedor =
+RANKX (
+    ALLSELECTED ( DimProveedor[NombreProveedor] ),
+    [Total Comprado],
+    ,
+    DESC,
+    DENSE
+)
+
+
+/* ----------------------------------------------------------------------------
+   ParticipaciÃ³n del Total (Proveedores)
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Cuota del proveedor sobre el total de proveedores visible en el visual.
+   ---------------------------------------------------------------------------- */
+ParticipaciÃ³n del Total (Proveedores) =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   ParticipaciÃ³n del Total (Tiempo)
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Cuota del perÃ­odo sobre el total de fechas visible en el visual.
+   ---------------------------------------------------------------------------- */
+ParticipaciÃ³n del Total (Tiempo) =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimFecha ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Top 10 Proveedores
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Monto comprado a los 10 proveedores con mayor gasto.
+   ---------------------------------------------------------------------------- */
+Top 10 Proveedores =
+CALCULATE (
+    [Total Comprado],
+    TOPN (
+        10,
+        ALLSELECTED ( DimProveedor[NombreProveedor] ),
+        [Total Comprado],
+        DESC
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   ConcentraciÃ³n Top 10
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   QuÃ© porcentaje del gasto se concentra en los 10 proveedores principales.
+   ---------------------------------------------------------------------------- */
+ConcentraciÃ³n Top 10 =
+DIVIDE (
+    [Top 10 Proveedores],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   HHI Proveedores
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Ãndice Herfindahl-Hirschman: suma de las cuotas al cuadrado. Cerca de 0 %
+   indica un gasto muy disperso; cerca de 100 % indica un solo proveedor.
+   ---------------------------------------------------------------------------- */
+HHI Proveedores =
+VAR TotalGeneral = CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+RETURN
+SUMX (
+    ALLSELECTED ( DimProveedor[VendorID] ),
+    VAR CompraProveedor = CALCULATE ( [Total Comprado] )
+    VAR Cuota = DIVIDE ( CompraProveedor, TotalGeneral )
+    RETURN Cuota ^ 2
+)
+
+
+/* ----------------------------------------------------------------------------
+   ParticipaciÃ³n del Segmento
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Cuota del segmento sobre el total de segmentos visible en el visual.
+   ---------------------------------------------------------------------------- */
+ParticipaciÃ³n del Segmento =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE (
+        [Total Comprado],
+        ALLSELECTED ( DimProveedor[Segmento] )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores por Segmento
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   Proveedores con compras en cada segmento.
+   ---------------------------------------------------------------------------- */
+Proveedores por Segmento =
+DISTINCTCOUNT ( FactCompras[VendorID] )
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Proveedores por Segmento
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Proveedores por Segmento =
+DIVIDE (
+    [Proveedores por Segmento],
+    CALCULATE (
+        [Proveedores por Segmento],
+        ALLSELECTED ( DimProveedor[Segmento] )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Ranking Producto
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   ---------------------------------------------------------------------------- */
+Ranking Producto =
+RANKX (
+    ALLSELECTED ( DimProducto[NombreProducto] ),
+    [Total Comprado],
+    ,
+    DESC,
+    DENSE
+)
+
+
+/* ----------------------------------------------------------------------------
+   ParticipaciÃ³n del Total (Productos)
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+ParticipaciÃ³n del Total (Productos) =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimProducto ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Compra Acumulada Proveedor
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Suma el gasto de los proveedores con compra mayor o igual a la del proveedor
+   actual. Es la base para la clasificaciÃ³n ABC.
+   ---------------------------------------------------------------------------- */
+Compra Acumulada Proveedor =
+VAR ProveedorActual = MAX ( DimProveedor[VendorID] )
+VAR CompraActual = CALCULATE (
+    [Total Comprado],
+    DimProveedor[VendorID] = ProveedorActual
+)
+RETURN
+SUMX (
+    FILTER (
+        ALLSELECTED ( DimProveedor[VendorID] ),
+        CALCULATE ( [Total Comprado] ) >= CompraActual
+    ),
+    CALCULATE ( [Total Comprado] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   ClasificaciÃ³n ABC
+   Carpeta: 02 Avanzadas | Formato: Texto
+   A = proveedores que acumulan hasta el 80 % del gasto.
+   B = hasta el 95 %.
+   C = el resto.
+   Usar en una tabla a nivel de proveedor.
+   ---------------------------------------------------------------------------- */
+ClasificaciÃ³n ABC =
+VAR TotalGeneral = CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+VAR Acumulado    = [Compra Acumulada Proveedor]
+VAR Porcentaje   = DIVIDE ( Acumulado, TotalGeneral )
+RETURN
+SWITCH (
+    TRUE (),
+    ISBLANK ( [Total Comprado] ), BLANK (),
+    Porcentaje <= 0.80, "A",
+    Porcentaje <= 0.95, "B",
+    "C"
+)
+
+
+/* ============================================================================
+   BLOQUE 3 - COMPORTAMIENTO Y CALIDAD DEL PROVEEDOR
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Proveedores Nuevos
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   Proveedores cuya primera compra histÃ³rica cae dentro del perÃ­odo visible.
+   ---------------------------------------------------------------------------- */
+Proveedores Nuevos =
+VAR FechaInicio = MIN ( DimFecha[Date] )
+VAR FechaFin    = MAX ( DimFecha[Date] )
+VAR PrimeraCompra =
+    ADDCOLUMNS (
+        ALLSELECTED ( DimProveedor[VendorID] ),
+        "@PrimeraCompra",
+        CALCULATE (
+            MIN ( FactCompras[FechaOrden] ),
+            ALL ( DimFecha )
+        )
+    )
+RETURN
+COUNTROWS (
+    FILTER (
+        PrimeraCompra,
+        [@PrimeraCompra] >= FechaInicio
+            && [@PrimeraCompra] <= FechaFin
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores sin Compra en el Periodo
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   Proveedores del maestro que no tienen compras en el perÃ­odo visible.
+   ---------------------------------------------------------------------------- */
+Proveedores sin Compra en el Periodo =
+COUNTROWS (
+    FILTER (
+        ALLSELECTED ( DimProveedor[VendorID] ),
+        ISBLANK ( CALCULATE ( [Total Comprado] ) )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   DÃ­as desde Ãšltima Compra
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   Usar en una tabla a nivel de proveedor. Ignora el filtro de fechas para
+   calcular la Ãºltima compra histÃ³rica.
+   ---------------------------------------------------------------------------- */
+DÃ­as desde Ãšltima Compra =
+VAR UltimaCompra = CALCULATE (
+    MAX ( FactCompras[FechaOrden] ),
+    ALL ( DimFecha )
+)
+RETURN
+IF (
+    ISBLANK ( UltimaCompra ),
+    BLANK (),
+    DATEDIFF ( UltimaCompra, TODAY (), DAY )
+)
+
+
+/* ----------------------------------------------------------------------------
+   SemÃ¡foro Proveedor
+   Carpeta: 02 Avanzadas | Formato: Texto
+   Regla de ejemplo: verde si comprÃ³ en los Ãºltimos 90 dÃ­as y acumula al menos
+   100.000; amarillo si comprÃ³ en los Ãºltimos 180 dÃ­as; rojo en otro caso.
+   Ajustar los umbrales segÃºn la polÃ­tica de compras.
+   ---------------------------------------------------------------------------- */
+SemÃ¡foro Proveedor =
+VAR Dias   = [DÃ­as desde Ãšltima Compra]
+VAR Compra = [Total Comprado]
+RETURN
+SWITCH (
+    TRUE (),
+    ISBLANK ( Compra ), "Sin compras",
+    ISBLANK ( Dias ), "Sin fecha",
+    Dias <= 90 && Compra >= 100000, "Verde",
+    Dias <= 180, "Amarillo",
+    "Rojo"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Tasa de Cumplimiento
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Unidades recibidas sobre unidades ordenadas.
+   ---------------------------------------------------------------------------- */
+Tasa de Cumplimiento =
+DIVIDE (
+    SUM ( FactCompras[CantidadRecibida] ),
+    SUM ( FactCompras[CantidadOrdenada] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   DÃ­as de Entrega Ponderados
+   Carpeta: 02 Avanzadas | Formato: NÃºmero decimal
+   Promedio de dÃ­as de entrega ponderado por la cantidad ordenada.
+   ---------------------------------------------------------------------------- */
+DÃ­as de Entrega Ponderados =
+VAR Filas = FILTER (
+    FactCompras,
+    NOT ISBLANK ( FactCompras[FechaEnvio] )
+)
+RETURN
+DIVIDE (
+    SUMX (
+        Filas,
+        DATEDIFF (
+            FactCompras[FechaOrden],
+            FactCompras[FechaEnvio],
+            DAY
+        ) * FactCompras[CantidadOrdenada]
+    ),
+    SUMX ( Filas, FactCompras[CantidadOrdenada] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Monto Rechazado Estimado
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Valor estimado de las unidades rechazadas, prorrateando el TotalLinea.
+   ---------------------------------------------------------------------------- */
+Monto Rechazado Estimado =
+SUMX (
+    FactCompras,
+    DIVIDE (
+        FactCompras[CantidadRechazada],
+        FactCompras[CantidadOrdenada]
+    ) * FactCompras[TotalLinea]
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Monto Rechazado
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Monto Rechazado =
+DIVIDE ( [Monto Rechazado Estimado], [Total Comprado] )
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores con Rechazo
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   ---------------------------------------------------------------------------- */
+Proveedores con Rechazo =
+CALCULATE (
+    DISTINCTCOUNT ( FactCompras[VendorID] ),
+    FactCompras[CantidadRechazada] > 0
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Proveedores con Rechazo
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Proveedores con Rechazo =
+DIVIDE ( [Proveedores con Rechazo], [Proveedores con Compras] )
+
+
+/* ============================================================================
+   BLOQUE 4 - CONTROL DE CALIDAD DEL MODELO
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Ã“rdenes sin Detalle
+   Carpeta: 03 Ã“rdenes | Formato: NÃºmero entero
+   Diferencia entre las Ã³rdenes de cabecera y las Ã³rdenes con al menos una
+   lÃ­nea. En AdventureWorks2 son las Ã³rdenes 6013 y 7013.
+   ---------------------------------------------------------------------------- */
+Ã“rdenes sin Detalle =
+[NÃºmero de Ã“rdenes] - [NÃºmero de Ã“rdenes con Detalle]
+
+
+/* ----------------------------------------------------------------------------
+   Diferencia TotalDue vs LÃ­neas
+   Carpeta: 03 Ã“rdenes | Formato: Moneda
+   Diferencia entre el TotalDue de cabecera y la suma de lÃ­neas. Incluye
+   impuestos, flete y las inconsistencias documentadas del origen.
+   ---------------------------------------------------------------------------- */
+Diferencia TotalDue vs LÃ­neas =
+[Total con Impuestos y Flete] - [Total Comprado]
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Diferencia TotalDue vs LÃ­neas
+   Carpeta: 03 Ã“rdenes | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Diferencia TotalDue vs LÃ­neas =
+DIVIDE ( [Diferencia TotalDue vs LÃ­neas], [Total Comprado] )
+
+
+/* ============================================================================
+   BLOQUE 5 - VENTANAS MÃ“VILES
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Total Comprado Ãšltimos 12 Meses
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   ---------------------------------------------------------------------------- */
+Total Comprado Ãšltimos 12 Meses =
+CALCULATE (
+    [Total Comprado],
+    DATESINPERIOD (
+        DimFecha[Date],
+        MAX ( DimFecha[Date] ),
+        -12,
+        MONTH
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores Activos Ãšltimos 12 Meses
+   Carpeta: 02 Avanzadas | Formato: NÃºmero entero
+   ---------------------------------------------------------------------------- */
+Proveedores Activos Ãšltimos 12 Meses =
+CALCULATE (
+    [Proveedores con Compras],
+    DATESINPERIOD (
+        DimFecha[Date],
+        MAX ( DimFecha[Date] ),
+        -12,
+        MONTH
+    )
+)
+

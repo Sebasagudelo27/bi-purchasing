@@ -1,0 +1,565 @@
+/* ============================================================================
+   CRITERIO 3 - MEDIDAS DAX AVANZADAS
+   Proyecto: BI Purchasing - AdventureWorks2
+   Responsable: Molina
+   ----------------------------------------------------------------------------
+   Requisitos del modelo:
+     - DimFecha marcada como tabla de fechas (columna Date).
+     - Relación activa: DimFecha[Date] 1 -> * FactCompras[FechaOrden]
+     - Relación activa: DimFecha[Date] 1 -> * FactOrdenes[FechaOrden]
+     - Relaciones inactivas:
+         DimFecha[Date] 1 -> * FactCompras[FechaEnvio]
+         DimFecha[Date] 1 -> * FactCompras[FechaVencimiento]
+         DimFecha[Date] 1 -> * FactOrdenes[FechaEnvio]
+
+   Las medidas de tiempo (SAMEPERIODLASTYEAR, TOTALYTD, DATEADD) no funcionan
+   bien si DimFecha no está marcada como tabla de fechas.
+   ============================================================================ */
+
+
+/* ============================================================================
+   BLOQUE 1 - INTELIGENCIA DE TIEMPO
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Total Comprado Año Anterior
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Compara el mismo período del año anterior.
+   ---------------------------------------------------------------------------- */
+Total Comprado Año Anterior =
+CALCULATE (
+    [Total Comprado],
+    SAMEPERIODLASTYEAR ( DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Variación Porcentual Año Anterior
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Variación Porcentual Año Anterior =
+VAR Actual   = [Total Comprado]
+VAR Anterior = [Total Comprado Año Anterior]
+RETURN
+DIVIDE ( Actual - Anterior, Anterior )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado YTD
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Acumulado del año calendario hasta la fecha seleccionada.
+   ---------------------------------------------------------------------------- */
+Total Comprado YTD =
+TOTALYTD ( [Total Comprado], DimFecha[Date] )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado MTD
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Acumulado del mes hasta la fecha seleccionada.
+   ---------------------------------------------------------------------------- */
+Total Comprado MTD =
+TOTALMTD ( [Total Comprado], DimFecha[Date] )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado Acumulado
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Acumulado corrido sobre el eje de fechas visible en el visual.
+   ---------------------------------------------------------------------------- */
+Total Comprado Acumulado =
+CALCULATE (
+    [Total Comprado],
+    FILTER (
+        ALLSELECTED ( DimFecha[Date] ),
+        DimFecha[Date] <= MAX ( DimFecha[Date] )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Variación Porcentual Mes Anterior
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Variación Porcentual Mes Anterior =
+VAR Actual   = [Total Comprado]
+VAR Anterior = CALCULATE (
+    [Total Comprado],
+    DATEADD ( DimFecha[Date], -1, MONTH )
+)
+RETURN
+DIVIDE ( Actual - Anterior, Anterior )
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado por Fecha de Envío
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Reasigna el filtro de DimFecha a la fecha de envío (relación inactiva).
+   Útil para analizar compras despachadas en un mes distinto al de la orden.
+   ---------------------------------------------------------------------------- */
+Total Comprado por Fecha de Envío =
+CALCULATE (
+    [Total Comprado],
+    USERELATIONSHIP ( FactCompras[FechaEnvio], DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Total Comprado por Fecha de Vencimiento
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Reasigna el filtro de DimFecha a la fecha de vencimiento (relación inactiva).
+   ---------------------------------------------------------------------------- */
+Total Comprado por Fecha de Vencimiento =
+CALCULATE (
+    [Total Comprado],
+    USERELATIONSHIP ( FactCompras[FechaVencimiento], DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Total con Impuestos y Flete Año Anterior
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   ---------------------------------------------------------------------------- */
+Total con Impuestos y Flete Año Anterior =
+CALCULATE (
+    [Total con Impuestos y Flete],
+    SAMEPERIODLASTYEAR ( DimFecha[Date] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Variación Porcentual TotalDue Año Anterior
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Variación Porcentual TotalDue Año Anterior =
+VAR Actual   = [Total con Impuestos y Flete]
+VAR Anterior = [Total con Impuestos y Flete Año Anterior]
+RETURN
+DIVIDE ( Actual - Anterior, Anterior )
+
+
+/* ============================================================================
+   BLOQUE 2 - RANKING, PARTICIPACIÓN Y CONCENTRACIÓN
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Ranking Proveedor
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   Usar en una tabla o gráfico a nivel de proveedor.
+   ---------------------------------------------------------------------------- */
+Ranking Proveedor =
+RANKX (
+    ALLSELECTED ( DimProveedor[NombreProveedor] ),
+    [Total Comprado],
+    ,
+    DESC,
+    DENSE
+)
+
+
+/* ----------------------------------------------------------------------------
+   Participación del Total (Proveedores)
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Cuota del proveedor sobre el total de proveedores visible en el visual.
+   ---------------------------------------------------------------------------- */
+Participación del Total (Proveedores) =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Participación del Total (Tiempo)
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Cuota del período sobre el total de fechas visible en el visual.
+   ---------------------------------------------------------------------------- */
+Participación del Total (Tiempo) =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimFecha ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Top 10 Proveedores
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Monto comprado a los 10 proveedores con mayor gasto.
+   ---------------------------------------------------------------------------- */
+Top 10 Proveedores =
+CALCULATE (
+    [Total Comprado],
+    TOPN (
+        10,
+        ALLSELECTED ( DimProveedor[NombreProveedor] ),
+        [Total Comprado],
+        DESC
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Concentración Top 10
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Qué porcentaje del gasto se concentra en los 10 proveedores principales.
+   ---------------------------------------------------------------------------- */
+Concentración Top 10 =
+DIVIDE (
+    [Top 10 Proveedores],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   HHI Proveedores
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Índice Herfindahl-Hirschman: suma de las cuotas al cuadrado. Cerca de 0 %
+   indica un gasto muy disperso; cerca de 100 % indica un solo proveedor.
+   ---------------------------------------------------------------------------- */
+HHI Proveedores =
+VAR TotalGeneral = CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+RETURN
+SUMX (
+    ALLSELECTED ( DimProveedor[VendorID] ),
+    VAR CompraProveedor = CALCULATE ( [Total Comprado] )
+    VAR Cuota = DIVIDE ( CompraProveedor, TotalGeneral )
+    RETURN Cuota ^ 2
+)
+
+
+/* ----------------------------------------------------------------------------
+   Participación del Segmento
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Cuota del segmento sobre el total de segmentos visible en el visual.
+   ---------------------------------------------------------------------------- */
+Participación del Segmento =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE (
+        [Total Comprado],
+        ALLSELECTED ( DimProveedor[Segmento] )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores por Segmento
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   Proveedores con compras en cada segmento.
+   ---------------------------------------------------------------------------- */
+Proveedores por Segmento =
+DISTINCTCOUNT ( FactCompras[VendorID] )
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Proveedores por Segmento
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Proveedores por Segmento =
+DIVIDE (
+    [Proveedores por Segmento],
+    CALCULATE (
+        [Proveedores por Segmento],
+        ALLSELECTED ( DimProveedor[Segmento] )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Ranking Producto
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   ---------------------------------------------------------------------------- */
+Ranking Producto =
+RANKX (
+    ALLSELECTED ( DimProducto[NombreProducto] ),
+    [Total Comprado],
+    ,
+    DESC,
+    DENSE
+)
+
+
+/* ----------------------------------------------------------------------------
+   Participación del Total (Productos)
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Participación del Total (Productos) =
+DIVIDE (
+    [Total Comprado],
+    CALCULATE ( [Total Comprado], ALLSELECTED ( DimProducto ) )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Compra Acumulada Proveedor
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Suma el gasto de los proveedores con compra mayor o igual a la del proveedor
+   actual. Es la base para la clasificación ABC.
+   ---------------------------------------------------------------------------- */
+Compra Acumulada Proveedor =
+VAR ProveedorActual = MAX ( DimProveedor[VendorID] )
+VAR CompraActual = CALCULATE (
+    [Total Comprado],
+    DimProveedor[VendorID] = ProveedorActual
+)
+RETURN
+SUMX (
+    FILTER (
+        ALLSELECTED ( DimProveedor[VendorID] ),
+        CALCULATE ( [Total Comprado] ) >= CompraActual
+    ),
+    CALCULATE ( [Total Comprado] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Clasificación ABC
+   Carpeta: 02 Avanzadas | Formato: Texto
+   A = proveedores que acumulan hasta el 80 % del gasto.
+   B = hasta el 95 %.
+   C = el resto.
+   Usar en una tabla a nivel de proveedor.
+   ---------------------------------------------------------------------------- */
+Clasificación ABC =
+VAR TotalGeneral = CALCULATE ( [Total Comprado], ALLSELECTED ( DimProveedor ) )
+VAR Acumulado    = [Compra Acumulada Proveedor]
+VAR Porcentaje   = DIVIDE ( Acumulado, TotalGeneral )
+RETURN
+SWITCH (
+    TRUE (),
+    ISBLANK ( [Total Comprado] ), BLANK (),
+    Porcentaje <= 0.80, "A",
+    Porcentaje <= 0.95, "B",
+    "C"
+)
+
+
+/* ============================================================================
+   BLOQUE 3 - COMPORTAMIENTO Y CALIDAD DEL PROVEEDOR
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Proveedores Nuevos
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   Proveedores cuya primera compra histórica cae dentro del período visible.
+   ---------------------------------------------------------------------------- */
+Proveedores Nuevos =
+VAR FechaInicio = MIN ( DimFecha[Date] )
+VAR FechaFin    = MAX ( DimFecha[Date] )
+VAR PrimeraCompra =
+    ADDCOLUMNS (
+        ALLSELECTED ( DimProveedor[VendorID] ),
+        "@PrimeraCompra",
+        CALCULATE (
+            MIN ( FactCompras[FechaOrden] ),
+            ALL ( DimFecha )
+        )
+    )
+RETURN
+COUNTROWS (
+    FILTER (
+        PrimeraCompra,
+        [@PrimeraCompra] >= FechaInicio
+            && [@PrimeraCompra] <= FechaFin
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores sin Compra en el Periodo
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   Proveedores del maestro que no tienen compras en el período visible.
+   ---------------------------------------------------------------------------- */
+Proveedores sin Compra en el Periodo =
+COUNTROWS (
+    FILTER (
+        ALLSELECTED ( DimProveedor[VendorID] ),
+        ISBLANK ( CALCULATE ( [Total Comprado] ) )
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Días desde Última Compra
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   Usar en una tabla a nivel de proveedor. Ignora el filtro de fechas para
+   calcular la última compra histórica.
+   ---------------------------------------------------------------------------- */
+Días desde Última Compra =
+VAR UltimaCompra = CALCULATE (
+    MAX ( FactCompras[FechaOrden] ),
+    ALL ( DimFecha )
+)
+RETURN
+IF (
+    ISBLANK ( UltimaCompra ),
+    BLANK (),
+    DATEDIFF ( UltimaCompra, TODAY (), DAY )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Semáforo Proveedor
+   Carpeta: 02 Avanzadas | Formato: Texto
+   Regla de ejemplo: verde si compró en los últimos 90 días y acumula al menos
+   100.000; amarillo si compró en los últimos 180 días; rojo en otro caso.
+   Ajustar los umbrales según la política de compras.
+   ---------------------------------------------------------------------------- */
+Semáforo Proveedor =
+VAR Dias   = [Días desde Última Compra]
+VAR Compra = [Total Comprado]
+RETURN
+SWITCH (
+    TRUE (),
+    ISBLANK ( Compra ), "Sin compras",
+    ISBLANK ( Dias ), "Sin fecha",
+    Dias <= 90 && Compra >= 100000, "Verde",
+    Dias <= 180, "Amarillo",
+    "Rojo"
+)
+
+
+/* ----------------------------------------------------------------------------
+   Tasa de Cumplimiento
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   Unidades recibidas sobre unidades ordenadas.
+   ---------------------------------------------------------------------------- */
+Tasa de Cumplimiento =
+DIVIDE (
+    SUM ( FactCompras[CantidadRecibida] ),
+    SUM ( FactCompras[CantidadOrdenada] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Días de Entrega Ponderados
+   Carpeta: 02 Avanzadas | Formato: Número decimal
+   Promedio de días de entrega ponderado por la cantidad ordenada.
+   ---------------------------------------------------------------------------- */
+Días de Entrega Ponderados =
+VAR Filas = FILTER (
+    FactCompras,
+    NOT ISBLANK ( FactCompras[FechaEnvio] )
+)
+RETURN
+DIVIDE (
+    SUMX (
+        Filas,
+        DATEDIFF (
+            FactCompras[FechaOrden],
+            FactCompras[FechaEnvio],
+            DAY
+        ) * FactCompras[CantidadOrdenada]
+    ),
+    SUMX ( Filas, FactCompras[CantidadOrdenada] )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Monto Rechazado Estimado
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   Valor estimado de las unidades rechazadas, prorrateando el TotalLinea.
+   ---------------------------------------------------------------------------- */
+Monto Rechazado Estimado =
+SUMX (
+    FactCompras,
+    DIVIDE (
+        FactCompras[CantidadRechazada],
+        FactCompras[CantidadOrdenada]
+    ) * FactCompras[TotalLinea]
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Monto Rechazado
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Monto Rechazado =
+DIVIDE ( [Monto Rechazado Estimado], [Total Comprado] )
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores con Rechazo
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   ---------------------------------------------------------------------------- */
+Proveedores con Rechazo =
+CALCULATE (
+    DISTINCTCOUNT ( FactCompras[VendorID] ),
+    FactCompras[CantidadRechazada] > 0
+)
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Proveedores con Rechazo
+   Carpeta: 02 Avanzadas | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Proveedores con Rechazo =
+DIVIDE ( [Proveedores con Rechazo], [Proveedores con Compras] )
+
+
+/* ============================================================================
+   BLOQUE 4 - CONTROL DE CALIDAD DEL MODELO
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Órdenes sin Detalle
+   Carpeta: 03 Órdenes | Formato: Número entero
+   Diferencia entre las órdenes de cabecera y las órdenes con al menos una
+   línea. En AdventureWorks2 son las órdenes 6013 y 7013.
+   ---------------------------------------------------------------------------- */
+Órdenes sin Detalle =
+[Número de Órdenes] - [Número de Órdenes con Detalle]
+
+
+/* ----------------------------------------------------------------------------
+   Diferencia TotalDue vs Líneas
+   Carpeta: 03 Órdenes | Formato: Moneda
+   Diferencia entre el TotalDue de cabecera y la suma de líneas. Incluye
+   impuestos, flete y las inconsistencias documentadas del origen.
+   ---------------------------------------------------------------------------- */
+Diferencia TotalDue vs Líneas =
+[Total con Impuestos y Flete] - [Total Comprado]
+
+
+/* ----------------------------------------------------------------------------
+   Porcentaje de Diferencia TotalDue vs Líneas
+   Carpeta: 03 Órdenes | Formato: Porcentaje
+   ---------------------------------------------------------------------------- */
+Porcentaje de Diferencia TotalDue vs Líneas =
+DIVIDE ( [Diferencia TotalDue vs Líneas], [Total Comprado] )
+
+
+/* ============================================================================
+   BLOQUE 5 - VENTANAS MÓVILES
+   ============================================================================ */
+
+/* ----------------------------------------------------------------------------
+   Total Comprado Últimos 12 Meses
+   Carpeta: 02 Avanzadas | Formato: Moneda
+   ---------------------------------------------------------------------------- */
+Total Comprado Últimos 12 Meses =
+CALCULATE (
+    [Total Comprado],
+    DATESINPERIOD (
+        DimFecha[Date],
+        MAX ( DimFecha[Date] ),
+        -12,
+        MONTH
+    )
+)
+
+
+/* ----------------------------------------------------------------------------
+   Proveedores Activos Últimos 12 Meses
+   Carpeta: 02 Avanzadas | Formato: Número entero
+   ---------------------------------------------------------------------------- */
+Proveedores Activos Últimos 12 Meses =
+CALCULATE (
+    [Proveedores con Compras],
+    DATESINPERIOD (
+        DimFecha[Date],
+        MAX ( DimFecha[Date] ),
+        -12,
+        MONTH
+    )
+)
